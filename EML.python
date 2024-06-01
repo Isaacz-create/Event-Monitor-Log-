@@ -1,0 +1,51 @@
+import win32evtlog
+import time
+import logging
+
+# Configure logging
+logging.basicConfig(filename='event_log_monitor.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Function to monitor event logs
+def monitor_event_log(log_type, interval=5):
+    server = 'localhost'  # name of the target computer to get event logs
+    log_handle = win32evtlog.OpenEventLog(server, log_type)
+    
+    flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+    total = win32evtlog.GetNumberOfEventLogRecords(log_handle)
+    
+    logging.info(f"Monitoring {log_type} event log... Total records: {total}")
+    
+    while True:
+        try:
+            events = win32evtlog.ReadEventLog(log_handle, flags, 0)
+            for event in events:
+                # Filter events if necessary (e.g., only errors and warnings)
+                if event.EventType in [win32evtlog.EVENTLOG_ERROR_TYPE, win32evtlog.EVENTLOG_WARNING_TYPE]:
+                    # Format event details
+                    event_details = (
+                        f"Event Category: {event.EventCategory}\n"
+                        f"Time Generated: {event.TimeGenerated}\n"
+                        f"Source Name: {event.SourceName}\n"
+                        f"Event ID: {event.EventID}\n"
+                        f"Event Type: {event.EventType}\n"
+                        f"Event Data: {event.StringInserts}\n"
+                        + "-" * 40
+                    )
+                    print(event_details)
+                    logging.info(event_details)
+            
+            # Wait for the specified interval before checking for new events
+            time.sleep(interval)
+        except Exception as e:
+            logging.error(f"Error reading event log: {e}")
+            break
+    
+    win32evtlog.CloseEventLog(log_handle)
+
+# Define the type of log to monitor
+log_type = 'System'  # Other options include 'Application' and 'Security'
+interval = 5  # Check for new events every 5 seconds
+
+# Start monitoring the event log
+monitor_event_log(log_type, interval)
